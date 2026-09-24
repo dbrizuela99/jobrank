@@ -1,6 +1,10 @@
 import httpx
 import html
+
+#for clean up of description
 from bs4 import BeautifulSoup
+#import the db table
+from jobrank.db import init_db, save_jobs, count_jobs
 
 #function to clean the raw text
 def clean_html(raw):
@@ -21,14 +25,17 @@ COMPANIES = ["stripe", "airbnb", "discord", "figma", "databricks", "cloudflare",
 #jobs list matchign with company
 all_jobs = []
 
+#initialize the db
+init_db()
+
 for company in COMPANIES:
 
     url = f"https://boards-api.greenhouse.io/v1/boards/{company}/jobs?content=true"
 
 
     try: 
-        # get the JSON from the URL
-        response = httpx.get(url)
+        # get the JSON from the URL wiht a 30 sec timer
+        response = httpx.get(url, timeout=30)
         
         #throw an exception if it did not work
         response.raise_for_status()
@@ -53,13 +60,17 @@ for company in COMPANIES:
         #add it to the all jobs
         all_jobs.extend(jobs)
 
-    except httpx.HTTPStatusError:
+    #catch all errors
+    except httpx.HTTPStatusError as e:
         print(f"Skipping {company}")
 
 #print the total count
 print(f"All jobs: {len(all_jobs)}")
 
-print(all_jobs[0]["description"])
+#store the jobs into the database
+save_jobs(all_jobs)
+
+print(f"Jobs stored in the database: {count_jobs()}")
 
 
 
