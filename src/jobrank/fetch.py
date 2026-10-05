@@ -85,8 +85,6 @@ for company in COMPANIES:
 #print the total count
 print(f"All jobs: {len(all_jobs)}")
 
-all_jobs.pop()
-
 #store the jobs into the database
 save_jobs(all_jobs)
 
