@@ -1,10 +1,16 @@
 import sqlite3
 
 
+#since using foreign keys need to always enable foreing keys, so a helper method that connects and enables everytime
+def get_connection():
+    conn = sqlite3.connect("jobs.db")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
 #initialize the database function
 def init_db():
     # connect to the database file
-    conn = sqlite3.connect("jobs.db")
+    conn = get_connection()
     #if table not created make it
     conn.execute("""CREATE TABLE IF NOT EXISTS jobs( 
     id INTEGER PRIMARY KEY,
@@ -17,6 +23,24 @@ def init_db():
     last_seen_at TEXT,
     is_active INTEGER) """)
 
+    #table for users resumes
+    conn.execute("""CREATE TABLE IF NOT EXISTS resumes(
+    id INTEGER PRIMARY KEY,
+    name TEXT UNIQUE,
+    content TEXT,
+    created_at TEXT)""") 
+
+     #table for jobs labeled in terms with a resume (training data / eval)
+    conn.execute("""CREATE TABLE IF NOT EXISTS labels(
+    resume_id INTEGER,
+    job_id INTEGER,
+    label INTEGER,
+    labeled_at TEXT,
+    CHECK (label IN (0, 1, 2)),
+    FOREIGN KEY (resume_id) REFERENCES resumes(id),
+    FOREIGN KEY (job_id) REFERENCES jobs(id),
+    PRIMARY KEY (resume_id, job_id))""") 
+
     #save the changes
     conn.commit()
     #close the conncection
@@ -25,7 +49,7 @@ def init_db():
 #save the jobs
 def save_jobs(jobs):
 
-    conn = sqlite3.connect("jobs.db")
+    conn = get_connection()
 
     for job in jobs:
         conn.execute(""" INSERT OR REPLACE INTO jobs (id, company, title, location, url, description, updated_at, last_seen_at, is_active) 
@@ -44,7 +68,7 @@ def save_jobs(jobs):
 
 #count the jobs
 def count_jobs():
-    conn = sqlite3.connect("jobs.db")
+    conn = get_connection()
 
     #run a query to count all the jobs that are active get the first row and only value (fetchone)
     count = conn.execute(""" SELECT COUNT(*) FROM jobs 
@@ -55,7 +79,7 @@ def count_jobs():
 
 #mark inactive jobs to hide from the query
 def mark_inactive(companies, time):
-    conn = sqlite3.connect("jobs.db")
+    conn = get_connection()
 
     #loop for every company
     for company in companies:
