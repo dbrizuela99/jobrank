@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timezone
 
 
 #since using foreign keys need to always enable foreing keys, so a helper method that connects and enables everytime
@@ -98,6 +99,21 @@ def mark_inactive(companies, time):
                         AND last_seen_at < ?""", (company,time))
         
     #commit the chnages and close the connection
+    conn.commit()
+    conn.close()
+
+def add_resume(name, path):
+    conn = get_connection()
+
+    #get the resume as a string
+    with open(path) as f:
+        content = f.read()
+        #get current time
+        created_at = datetime.now(timezone.utc).isoformat()
+        conn.execute("""INSERT OR IGNORE INTO resumes(name, content, created_at) 
+                     VALUES (?, ?, ?)""", (name, content, created_at))
+        
+     #commit the chnages and close the connection
     conn.commit()
     conn.close()
 
