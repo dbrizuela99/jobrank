@@ -52,8 +52,18 @@ def save_jobs(jobs):
     conn = get_connection()
 
     for job in jobs:
-        conn.execute(""" INSERT OR REPLACE INTO jobs (id, company, title, location, url, description, updated_at, last_seen_at, is_active) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", (job["id"], 
+        #save the job by inserting it if it already exist then just replace the value using ON CONFLICT so it does nto delete it 
+        conn.execute(""" INSERT INTO jobs (id, company, title, location, url, description, updated_at, last_seen_at, is_active) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON  CONFLICT(id) DO UPDATE SET
+                        company = excluded.company,
+                        title = excluded.title,
+                        location = excluded.location,
+                        url = excluded.url,
+                        description = excluded.description,
+                        updated_at = excluded.updated_at,
+                        last_seen_at = excluded.last_seen_at,
+                        is_active = excluded.is_active""", (job["id"], 
                                                        job["company"], 
                                                        job["title"], 
                                                        job["location"]["name"], 
@@ -72,7 +82,7 @@ def count_jobs():
 
     #run a query to count all the jobs that are active get the first row and only value (fetchone)
     count = conn.execute(""" SELECT COUNT(*) FROM jobs 
-                             WHERE is_active = 1""").fetchone()[0]
+                             WHERE is_active = 0""").fetchone()[0]
     
     conn.close()
     return count
@@ -83,7 +93,7 @@ def mark_inactive(companies, time):
 
     #loop for every company
     for company in companies:
-        conn.execute("""UPDATE jobs SET is_active = 0 
+        conn.execute("""UPDATE jobs SET is_active = 1 
                         WHERE company = ? 
                         AND last_seen_at < ?""", (company,time))
         
