@@ -1,11 +1,16 @@
 import sqlite3
 from datetime import datetime, timezone
 
+# titles that suggest a job is relevant to my resume (only used to pick jobs for labeling)
+RELEVANT_KEYWORDS = ["engineer", "developer", "software", "data", "machine learning", "intern"]
 
-#since using foreign keys need to always enable foreing keys, so a helper method that connects and enables everytime
+
+#format the connection in one place
 def get_connection():
     conn = sqlite3.connect("jobs.db")
     conn.execute("PRAGMA foreign_keys = ON")
+    #make the fetch all return row name instead of indices as well
+    conn.row_factory = sqlite3.Row
     return conn
 
 #initialize the database function
@@ -83,7 +88,7 @@ def count_jobs():
 
     #run a query to count all the jobs that are active get the first row and only value (fetchone)
     count = conn.execute(""" SELECT COUNT(*) FROM jobs 
-                             WHERE is_active = 0""").fetchone()[0]
+                             WHERE is_active = 1""").fetchone()[0]
     
     conn.close()
     return count
@@ -94,7 +99,7 @@ def mark_inactive(companies, time):
 
     #loop for every company
     for company in companies:
-        conn.execute("""UPDATE jobs SET is_active = 1 
+        conn.execute("""UPDATE jobs SET is_active = 0 
                         WHERE company = ? 
                         AND last_seen_at < ?""", (company,time))
         
@@ -116,4 +121,41 @@ def add_resume(name, path):
      #commit the chnages and close the connection
     conn.commit()
     conn.close()
+
+
+#query that gets all the jobs that have no label 
+def get_unlabeled(resume_id, relevant_only=False):
+    conn = get_connection()
+
+    query = """
+        SELECT id, title, company, location, description
+        FROM jobs
+        WHERE id NOT IN (SELECT job_id FROM labels WHERE resume_id = ?)
+          AND is_active = 1
+    """
+    params = [resume_id]
+
+    if relevant_only:
+        conditions = " OR ".join(["title LIKE ?"] * len(RELEVANT_KEYWORDS))
+        query += f" AND ({conditions})"
+        params += [f"%{word}%" for word in RELEVANT_KEYWORDS]
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return rows
+
+#function that saves the labels into the labels table
+def save_label(resume_id, job_id, label):
+
+    labeled_at = datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+
+    conn.execute("""INSERT INTO labels (resume_id, job_id, label, labeled_at) VALUES(?, ?, ?, ?)
+                    ON CONFLICT (resume_id, job_id) DO UPDATE SET
+                    label = excluded.label,
+                    labeled_at = excluded.labeled_at""", (resume_id, job_id, label, labeled_at))
+    
+    conn.commit()
+    conn.close()
+
 
